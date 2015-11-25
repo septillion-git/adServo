@@ -1,0 +1,3 @@
+[submodule "libraries/ServoExtend"]
+	path = libraries/ServoExtend
+	url = https://github.com/sseptillion/ServoExtend
