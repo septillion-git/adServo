@@ -66,8 +66,11 @@
  * Vars and pinmaps
  ******************************************************************************/
 #if defined(DEBUG)
-const byte ButtonMap[] = {A4, A5, 4, 5, 3, A2, A1, A0};  //Pins of the buttons
-const byte Ping = A3;
+const byte ButtonMap[] = {A4, A5, 4, 5, 3, 12, 3, 12};  //Pins of the buttons
+const byte ButtonPing = A3;
+const byte ServoPing = A2;
+const byte DccPing = A1;
+const byte UpdatePing = A0;
 #else
 const byte ButtonMap[] = {1, 0, 4, 5, A3, A2, A1, A0};  //Pins of the buttons
 #endif
@@ -154,7 +157,10 @@ void setup(){
         Serial.begin(115200);
         Serial.println("Debug mode");
         
-        pinMode(Ping, OUTPUT);
+        pinMode(ButtonPing, OUTPUT);
+        pinMode(ServoPing, OUTPUT);
+        pinMode(DccPing, OUTPUT);
+        pinMode(UpdatePing, OUTPUT);
     #endif
     
     DCC.SetBasicAccessoryDecoderPacketHandler(BasicAccDecoderPacket_Handler, true);
@@ -174,48 +180,9 @@ void loop(){
     
     servoControl.update();  //update all servo's
     
-    //tic = micros();
-    
-    digitalWrite(Ping, HIGH);
+    buttonHigh();
     buttonUpdate();  // <----- Gaat het om
-    digitalWrite(Ping, LOW);
-    
-    
-    //toc = micros();
-    /*
-    toc -= tic;
-    if(tocMin > toc){
-      tocMin = toc;
-    }
-    else if(tocMax < toc){
-      tocMax = toc;
-    }
-    if(tocAvg == 0){
-      tocAvg = toc;
-    }
-    else{
-      tocAvg += toc;
-      tocAvg /= 2;
-    }
-    
-    if( (millis() - tictoc) > 1000UL) {
-      tictoc = millis(); 
-        
-      Serial.print(tic);
-      Serial.print("   ");
-      Serial.print(toc);
-      Serial.print("   ");
-      Serial.print(tocMin);
-      Serial.print("   ");
-      Serial.print(tocMax);
-      Serial.print("   ");
-      Serial.println(tocAvg);
-      
-      tocMin = -1;
-      tocMax = 0;
-      tocAvg = 0;
-    }
-    */
+    buttonLow();
     
     //Turn LED on soft if a servo is attached
     if(servoControl.isActive() == true){
@@ -226,6 +193,11 @@ void loop(){
         analogWrite(Led, 0);
     }  
     
+
+    dccHigh();
+    DCC.loop();
+    dccLow();
+
     
     //Lets check the program Button
     programButton.update();
@@ -238,10 +210,6 @@ void loop(){
         }
     }
     
-    {
-      //ProfileTimer("DCC");
-      DCC.loop();
-    }
 }
 
 void progMode(){
@@ -434,7 +402,9 @@ void buttonUpdate(){
     byte servo = iButton / 2;  //Pointer to effected servo
     byte modulo = iButton % 2; //which butto for that servo
     
+    updateHigh();
     buttons[iButton].update();    //update the button state
+    updateLow();
     
     //button is pressed an is even (have priority over odd)
     if(buttons[iButton].read() == LOW && modulo == 0){    
@@ -479,4 +449,46 @@ void BasicAccDecoderPacket_Handler(int address, boolean activate, byte data){
             servoControl.gotoEndPos(1, 1);
         }
     }
+}
+
+inline void dccHigh(){
+  uint8_t oldSREG = SREG;
+  cli();
+  PORTC |=  0x02; 
+  SREG = oldSREG;
+}
+
+inline void dccLow(){
+  uint8_t oldSREG = SREG;
+  cli();
+  PORTC &=  0xFD; 
+  SREG = oldSREG;
+}
+
+inline void buttonHigh(){
+  uint8_t oldSREG = SREG;
+  cli();
+  PORTC |=  0b00001000; 
+  SREG = oldSREG;
+}
+
+inline void buttonLow(){
+  uint8_t oldSREG = SREG;
+  cli();
+  PORTC &=  0b11110111; 
+  SREG = oldSREG;
+}
+
+inline void updateHigh(){
+  uint8_t oldSREG = SREG;
+  cli();
+  PORTC |=  0b00000001; 
+  SREG = oldSREG;
+}
+
+inline void updateLow(){
+  uint8_t oldSREG = SREG;
+  cli();
+  PORTC &=  0b11111110; 
+  SREG = oldSREG;
 }
